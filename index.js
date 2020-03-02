@@ -1,8 +1,7 @@
 const inquirer = require("inquirer");
 var fs = require('fs')
+const axios = require("axios");
 
-var cheerio = require('cheerio');
-const path = require('path');
 class Employee {
     constructor(name, email, role, id) {
         this.name = name;
@@ -16,13 +15,14 @@ class Manager extends Employee {
         super( name, email, 'Manager', id );
         this.officeNumber = officeNumber;
         this.gitHubUserName = gitHubUserName;
-    }};
+            }};
     
 class Engineer extends Employee {
     constructor( name, email, id, engineerGitHub ){
         super( name, email, 'Engineer', id );
         this.engineerGitHub = engineerGitHub;
             }};
+
 class Intern extends Employee {
     constructor( name, email, id, school ){
         super( name, email, 'Intern', id );
@@ -30,6 +30,7 @@ class Intern extends Employee {
             }};
 
 async function main(){
+
     console.log(`starting`);
     var manager = '';
     var engineer ='';
@@ -68,26 +69,27 @@ async function main(){
         }
         ]);
         console.log(`starting`);
-        console.log(userResponse);
+        console.log(`collected user response`);
         const managerName = userResponse.managerName;
         const managerGitHubUserName = userResponse.managerGitHubUserName;
         const managerID = userResponse.managerID;
         const managerOfficeNumber = userResponse.managerOfficeNumber;
         const managerEmail = userResponse.managerEmail;
         const teamNumber = Number(userResponse.teamNumber);
-        const newManager = new Manager(managerName, managerEmail, managerID, managerOfficeNumber, managerGitHubUserName);
-        console.log(newManager)
-        //Manager {name: "sara", email: "sara@gmail.com", role: "Manager", officeNumber: 3214, gitHubUserName: "SaraMunir"}
 
-        var employeeInfo = '';
-        var employeeName = '';
-        var typeOfEmployee = '';
-        var internEmail = '';
-        var internSchool = '';
-        var engineerEmail = '';
-        var engineerGitHub = '';
-        var internInfo = '';
-        var engineerInfo = '';
+        const gitResponse = await axios.get(`https://api.github.com/users/${managerGitHubUserName}`);
+        const gitData = gitResponse.data;
+        const gitUrl = gitData.html_url;
+        const gitProfileImage = gitData.avatar_url;
+
+        const newManager = new Manager(managerName, managerEmail, managerID, managerOfficeNumber, managerGitHubUserName);
+        // console.log('manager: ' + JSON.stringify(newManager));
+
+        let tmpl_manager = fs.readFileSync('htmlTemplate/manager_template.html', 'utf-8');
+        tmpl_manager = tmpl_manager.replace('%MANAGER-NAME%', newManager.name).replace('%MANAGER-EMAIL%', newManager.email).replace('%MANAGER-GIT%', newManager.gitHubUserName).replace('%MANAGER-OFFICENO%', newManager.officeNumber).replace('%MANAGER-ID%', newManager.id).replace('%MANG-GIT-IMG%', gitProfileImage).replace('%MANAGER-GIT-URL%', gitUrl);
+        let writeEmployee = fs.writeFileSync('html/employee.html', '');
+        
+        console.log(`collected info from manager`);
         for (i=0; i<teamNumber; i++){
             const userResponse2 = await inquirer
             .prompt([
@@ -128,22 +130,12 @@ async function main(){
                         var internEmail = userResponse3.internEmail;
                         var internSchool = userResponse3.internSchool;
 
-                        console.log( employeeName + ` is an ` + typeOfEmployee + `. their email is:` +  internEmail + `. Studied at  ` + internSchool)
                         const newIntern = new Intern(employeeName, internEmail, employeeIdNo, internSchool);
-                        var interns = JSON.stringify(newIntern);
-                        fs.appendFile(path.join(__dirname, '/jsfiles', 'intern.json'), interns, function(err){
-                            if(err) throw err;
-                            console.log('file written to...');
-                        })
-                        console.log(newIntern)
-                        var internInfo = internInfo +  (`
-                        <div>
-                        <h2>${typeOfEmployee}</h2>
-                        <h3>${internEmail}</h3>
-                        <h2>${employeeName}</h2>
-                        <h4>${internSchool}</h4>
-                        </div>
-                        `);
+                        console.log(`collected info from intern`+ newIntern.name);
+                        console.log(newIntern.name);
+                        let tmpl_intern = fs.readFileSync('htmlTemplate/intern_template.html', 'utf-8');
+                        tmpl_intern = tmpl_intern.replace('%INTERN-NAME%', newIntern.name).replace('%INTERN-EMAIL%', newIntern.email).replace('%INTERN-SCHOOL%', newIntern.school).replace('%INTERN-IDNO%', newIntern.id);
+                        let writeIntern = fs.appendFileSync('html/employee.html', tmpl_intern);
                     } else {
                         const userResponse4 = await inquirer
                         .prompt([
@@ -160,21 +152,26 @@ async function main(){
                         ]);
                         var engineerEmail = userResponse4.engineerEmail;
                         var engineerGitHub = userResponse4.engineerGitHub;
+                        const gitResponse2 = await axios.get(`https://api.github.com/users/${engineerGitHub}`);
+                        const gitData2 = gitResponse2.data;
+                        const gitUrlEng = gitData2.html_url;
+                        const gitProfileImageEng = gitData2.avatar_url;
+
                         console.log( employeeName + ` is an ` + typeOfEmployee + `. their email is: ` +  engineerEmail + ` and their gitHub user id is ` + engineerGitHub)
+
                         const newEngineer = new Engineer(employeeName, engineerEmail, employeeIdNo, engineerGitHub);
-                        console.log(newEngineer)
-                        var engineerInfo = engineerInfo +  (`<div><h2>${typeOfEmployee}</h2><h3>email: ${engineerEmail}</h3><h2>${employeeName}</h2><h4>Git hub url: ${engineerGitHub}</h4></div>`);
-                    } 
+                        
+                        let tmpl_engineer = fs.readFileSync('htmlTemplate/engineer_template.html', 'utf-8');
+                        console.log(`collected info from engineer`+ newEngineer.name);
+                        console.log(newEngineer.name);
+                        tmpl_engineer = tmpl_engineer.replace('%ENGINEERS-NAME%', newEngineer.name).replace('%ENGINEER-EMAIL%', newEngineer.email).replace('%ENGINEER-GITHUB%',newEngineer.engineerGitHub).replace('%ENG-GIT-IMG%',gitProfileImageEng).replace('%ENGINEER-GIT-URL%',gitUrlEng).replace('%ENGINEER-IDNO%', newEngineer.id);
+                        let writeEngineer = fs.appendFileSync('html/employee.html', tmpl_engineer);
+                    }
                 }
-            // fetching data from git
-            // user
-            var manager = (`
-            <h2>${managerName}</h2>
-            <h3>${managerGitHubUserName}</h3>
-            <a href="${managerEmail}"></a>
-            `)
-        var result = manager + engineerInfo + internInfo;
-var writeResult = fs.writeFileSync(path.join(__dirname, '../TeamGenerator', 'result.html'), result )
-console.log("file generated....")
+let employeefile = fs.readFileSync('html/employee.html', 'utf-8');
+let mainHtml = fs.readFileSync('htmlTemplate/index_template.html', 'utf-8');
+mainHtml = mainHtml.replace('%MANAGERSECTION%', tmpl_manager).replace('%OTHEREMPLOYEESECTION%', employeefile);
+let writeHTML = fs.writeFileSync('index.html', '');
+writeHTML = fs.writeFileSync('index.html', mainHtml);
     }
 main();
